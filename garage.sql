@@ -1,0 +1,1 @@
+ALTER TABLE `owned_vehicles` ADD `impound` tinyint(1) NOT NULL DEFAULT 0;
