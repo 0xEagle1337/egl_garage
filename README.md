@@ -10,4 +10,5 @@ How to install:
 - download script
 - copy/paste into you resources folder
 - execute sql query from garage.sql in your database
+- add "start egl_garage" or ensure your script folder in your server.cfg
 - update config.lua
