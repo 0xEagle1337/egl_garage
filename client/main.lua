@@ -1,3 +1,14 @@
+RegisterNetEvent('garage:retrieveFromImpoundResponse')
+AddEventHandler('garage:retrieveFromImpoundResponse', function(success, v, impound)
+    if success then
+        ImpoundSpawnVehicle(v.vehicle, impound)
+        RageUI.CloseAll()
+    else
+        ESX.ShowNotification(Locales[Config.lang]['not_enough_money'])
+        RageUI.CloseAll()
+    end
+end)
+
 RMenu.Add('garage', 'retrieve_vehicle', RageUI.CreateMenu(Locales[Config.lang]["garage_name"], Locales[Config.lang]["garage_desc"], Config.menu_settings.x, Config.menu_settings.y))
 RMenu:Get('garage', 'retrieve_vehicle'):SetRectangleBanner(Config.menu_settings.themeColor.r, Config.menu_settings.themeColor.g, Config.menu_settings.themeColor.b, Config.menu_settings.themeColor.a)
 RMenu.Add('impound', 'retrieve_vehicles', RageUI.CreateMenu(Locales[Config.lang]["impound_name"], Locales[Config.lang]["impound_desc"], Config.menu_settings.x, Config.menu_settings.y))
@@ -93,7 +104,7 @@ Citizen.CreateThread(function()
             local distance = GetDistanceBetweenCoords(playerCoords, impound.output.x, impound.output.y, impound.output.z, true)
             if distance < Config.marker_settings.radius then
                 DrawMarker(Config.marker_settings.impound.marker_id, impound.output.x, impound.output.y, impound.output.z + Config.marker_settings.impound.calibration, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 2.0, 2.0, 0.5, Config.marker_settings.impound.color.r, Config.marker_settings.impound.color.g, Config.marker_settings.impound.color.b, Config.marker_settings.impound.color.a, false, true, 2, false, false, false, false)
-                
+
                 if distance < Config.marker_settings.distance then
                     DisplayHelpText(Locales[Config.lang]["input_impound"])
                     if IsControlJustReleased(0, Config.keyboard) then
@@ -159,7 +170,7 @@ function MenuRetrieveVehicle(garage)
                 RageUI.IsVisible(RMenu:Get('garage', 'retrieve_vehicle'), true, true, true, function()
                     for _, vehicle in ipairs(vehicles) do
                         local vehicleName = GetVehicleDisplayName(vehicle.vehicle.model)
-                        if vehicle.stored == true and vehicle.impound == false then
+                        if vehicle.park == true and vehicle.impound == false then
                             RageUI.ButtonWithStyle(vehicleName .. " [~o~" .. vehicle.plate .. "~s~]", Locales[Config.lang]["retrieve_vehicle"], {RightLabel = "~b~>>>"}, true, function(_, _, Selected)
                                 if Selected then
                                     GarageSpawnVehicle(vehicle.vehicle, garage)
@@ -167,7 +178,7 @@ function MenuRetrieveVehicle(garage)
                                     isMenuOpen = false
                                 end
                             end)
-                        elseif vehicle.stored == false and vehicle.impound == true then
+                        elseif vehicle.park == false and vehicle.impound == true then
                             RageUI.ButtonWithStyle(vehicleName .. " [~o~" .. vehicle.plate .. "~s~]", Locales[Config.lang]["vehicle_is_impounded"], {RightLabel = Locales[Config.lang]["vehicle_impounded"]}, true)
                         else RageUI.ButtonWithStyle(vehicleName .. " [~o~" .. vehicle.plate .. "~s~]", Locales[Config.lang]["vehicle_is_retrieved"], {RightLabel = Locales[Config.lang]["vehicle_retrieved"]}, true)
                         end
@@ -186,7 +197,7 @@ local function DeleteVehicleByPlate(plate)
         if DoesEntityExist(vehicle) then
             local vehiclePlate = GetVehicleNumberPlateText(vehicle):gsub("%s+", "")
             if vehiclePlate == plate:gsub("%s+", "") then
-                DeleteEntity(vehicle)
+                ESX.Game.DeleteVehicle(vehicle)
                 break
             end
         end
@@ -196,7 +207,7 @@ end
 function OpenImpoundMenu(impound)
     ESX.TriggerServerCallback('garage:getOwnedVehicles', function(vehicles)
         RageUI.Visible(RMenu:Get('impound', 'retrieve_vehicles'), not RageUI.Visible(RMenu:Get('impound', 'retrieve_vehicles')))
-
+        local shouldBreak = false
         Citizen.CreateThread(function()
             while RageUI.Visible(RMenu:Get('impound', 'retrieve_vehicles')) do
                 Citizen.Wait(0)
@@ -204,7 +215,7 @@ function OpenImpoundMenu(impound)
                 RageUI.IsVisible(RMenu:Get('impound', 'retrieve_vehicles'), true, true, true, function()
                     for _, v in ipairs(vehicles) do
                         local vName = GetVehicleDisplayName(v.vehicle.model)
-                        if v.stored == false and v.impound == false then
+                        if v.park == false and v.impound == false then
                             RageUI.ButtonWithStyle(vName .. " [~o~" .. v.plate .. "~s~]", Locales[Config.lang]["select_to_impound"], {RightLabel = Locales[Config.lang]["impound_vehicle"]}, true, function(_, _, selected)
                                 if selected then
                                     DeleteVehicleByPlate(v.plate)
@@ -216,22 +227,15 @@ function OpenImpoundMenu(impound)
                         if v.impound == true then
                             RageUI.ButtonWithStyle(vName .. " [~o~" .. v.plate .. "~s~]", Locales[Config.lang]["pay_impound"].. Config.impound_price .. "~s~ "  .. Config.currency, {RightLabel = "~r~>>>"}, true, function(_, _, selected)
                                 if selected then
-                                    TriggerServerEvent('garage:retrieveFromImpound', v.plate)
-                                    RegisterNetEvent('garage:retrieveFromImpoundResponse')
-                                    AddEventHandler('garage:retrieveFromImpoundResponse', function(success)
-                                        if success then
-                                            ImpoundSpawnVehicle(v.vehicle, impound)
-                                            RageUI.CloseAll()
-                                        else
-                                            ESX.ShowNotification(Locales[Config.lang]["not_enough_money"])
-                                            RageUI.CloseAll()
-                                        end
-                                    end)
+                                    TriggerServerEvent('garage:retrieveFromImpound', v.plate, v, impound)
                                 end
                             end)
                         end
                     end
                 end)
+                if shouldBreak then
+                    break
+                end
             end
         end)
     end)
