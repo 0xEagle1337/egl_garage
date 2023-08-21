@@ -2,8 +2,8 @@ fx_version 'cerulean'
 games { 'gta5' }
 
 author 'Eagle'
-description 'FiveM garage script using RageUI for ESX Legacy 1.8.5'
-version '1.0.0'
+description 'FiveM garage / impound script using RageUI for ESX Legacy 1.8.5'
+version '1.0.1'
 
 
 dependency({
