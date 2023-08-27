@@ -3,7 +3,7 @@ local ESX = nil
 
 ESX = exports['es_extended']:getSharedObject()
 
-ESX.RegisterServerCallback('garage:getOwnedVehicles', function(source, cb, garageName)
+ESX.RegisterServerCallback('egl_garage:getOwnedVehicles', function(source, cb, garageName)
     local _source = source
     local xPlayer = ESX.GetPlayerFromId(_source)
     local identifier = xPlayer.identifier
@@ -17,14 +17,15 @@ ESX.RegisterServerCallback('garage:getOwnedVehicles', function(source, cb, garag
         for _, v in ipairs(result) do
             local vehicle = json.decode(v.vehicle)
             local impound = v.impound
-            table.insert(vehicles, {plate = v.plate, model = v.model, vehicle = vehicle, park = v.park, impound = impound})
+            local deformation = json.decode(v.deformation)
+            table.insert(vehicles, {plate = v.plate, model = v.model, vehicle = vehicle, park = v.park, impound = impound, ehealth = v.engine_health, bhealth = v.body_health, deformation = deformation, fuel = v.fuel_level})
         end
         cb(vehicles)
     end)
 end)
 
-RegisterServerEvent('garage:storeVehicle')
-AddEventHandler('garage:storeVehicle', function(vehicle, garageName)
+RegisterServerEvent('egl_garage:storeVehicle')
+AddEventHandler('egl_garage:storeVehicle', function(vehicle, garageName, engineHealth, bodyHealth, deformation, fuelLevel)
     local _source = source
     local xPlayer = ESX.GetPlayerFromId(_source)
     local identifier = xPlayer.identifier
@@ -34,24 +35,22 @@ AddEventHandler('garage:storeVehicle', function(vehicle, garageName)
         ['@plate'] = vehicle,
     }, function(rowsChanged)
         if rowsChanged == 1 then
-            TriggerClientEvent('garage:storeVehicleResponse', _source, true)
-        else
-            TriggerClientEvent('garage:storeVehicleResponse', _source, false)
+            local query_data = ("UPDATE %s SET engine_health = @engineHealth, body_health = @bodyHealth, deformation = @deformation, fuel_level = @fuelLevel WHERE plate = @plate"):format(Config.server_settings.vehicles_table)
+            MySQL.Async.execute(query_data, {
+                ['@plate'] = vehicle,
+                ['@engineHealth'] = engineHealth,
+                ['@bodyHealth'] = bodyHealth,
+                ['@deformation'] = json.encode(deformation),
+                ['@fuelLevel'] = fuelLevel
+            }, function(rowsChanged)
+                TriggerClientEvent('egl_garage:storeVehicleResponse', _source, true)
+            end)
         end
     end)
 end)
 
-RegisterServerEvent('garage:retrieveVehicle')
-AddEventHandler('garage:retrieveVehicle', function(plate)
-    local xPlayer = ESX.GetPlayerFromId(source)
-    local query_check = ("SELECT park FROM %s WHERE plate = @plate AND %s = @identifier"):format(Config.server_settings.vehicles_table, Config.server_settings.identifier_column)
-    MySQL.Async.fetchScalar(query_check, {
-        ['@plate'] = plate,
-        ['@identifier'] = xPlayer.identifier
-    }, function(isParked)
-        if isParked == 0 then
-            return
-        end
+RegisterServerEvent('egl_garage:retrieveVehicle')
+AddEventHandler('egl_garage:retrieveVehicle', function(plate)
     local _source = source
     local xPlayer = ESX.GetPlayerFromId(_source)
 
@@ -61,13 +60,12 @@ AddEventHandler('garage:retrieveVehicle', function(plate)
         ['@identifier'] = xPlayer.identifier
     }, function(rowsChanged)
         if rowsChanged == 0 then
-            TriggerClientEvent('esx:showNotification', _source, 'Erreur lors de la sortie du véhicule.')
+            TriggerClientEvent('esx:showNotification', _source, false)
         end
     end)
 end)
-end)
-RegisterServerEvent('garage:impoundVehicle')
-AddEventHandler('garage:impoundVehicle', function(vehiclePlate)
+RegisterServerEvent('egl_garage:impoundVehicle')
+AddEventHandler('egl_garage:impoundVehicle', function(vehiclePlate)
     local _source = source
     local xPlayer = ESX.GetPlayerFromId(_source)
 
@@ -77,25 +75,15 @@ AddEventHandler('garage:impoundVehicle', function(vehiclePlate)
         ['@identifier'] = xPlayer.identifier
     }, function(rowsChanged)
         if rowsChanged == 1 then
-            TriggerClientEvent('garage:impoundVehicleResponse', _source, true)
+            TriggerClientEvent('egl_garage:impoundVehicleResponse', _source, true)
         else
-            TriggerClientEvent('garage:impoundVehicleResponse', _source, false)
+            TriggerClientEvent('egl_garage:impoundVehicleResponse', _source, false)
         end
     end)
 end)
 
-RegisterServerEvent('garage:retrieveFromImpound')
-AddEventHandler('garage:retrieveFromImpound', function(vehiclePlate, v, impound)
-    local xPlayer = ESX.GetPlayerFromId(source)
-    local query_check = ("SELECT impound FROM %s WHERE plate = @plate AND %s = @identifier"):format(Config.server_settings.vehicles_table, Config.server_settings.identifier_column)
-    MySQL.Async.fetchScalar(query_check, {
-        ['@plate'] = vehiclePlate,
-        ['@identifier'] = xPlayer.identifier
-    }, function(isImpounded)
-        if isImpounded == 0 then
-            return
-        end
-    end)
+RegisterServerEvent('egl_garage:retrieveFromImpound')
+AddEventHandler('egl_garage:retrieveFromImpound', function(vehiclePlate, v, impound, deformation)
     local _source = source
     local xPlayer = ESX.GetPlayerFromId(_source)
 
@@ -109,10 +97,10 @@ AddEventHandler('garage:retrieveFromImpound', function(vehiclePlate, v, impound)
             ['@identifier'] = xPlayer.identifier
         }, function(rowsChanged)
             if rowsChanged == 1 then
-                TriggerClientEvent('garage:retrieveFromImpoundResponse', _source, true, v, impound)
+                TriggerClientEvent('egl_garage:retrieveFromImpoundResponse', _source, true, v, impound, deformation)
+            else
+                TriggerClientEvent('egl_garage:retrieveFromImpoundResponse', _source, false, v, impound, deformation)
             end
         end)
-    else
-        TriggerClientEvent('garage:retrieveFromImpoundResponse', _source, false, v, impound)
     end
 end)

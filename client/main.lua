@@ -1,14 +1,4 @@
-RegisterNetEvent('garage:retrieveFromImpoundResponse')
-AddEventHandler('garage:retrieveFromImpoundResponse', function(success, v, impound)
-    if success then
-        ImpoundSpawnVehicle(v.vehicle, impound)
-        RageUI.CloseAll()
-    else
-        ESX.ShowNotification(Locales[Config.lang]['not_enough_money'])
-        RageUI.CloseAll()
-    end
-end)
-
+-- Creating RageUI Garage/Impound Menu
 RMenu.Add('garage', 'retrieve_vehicle', RageUI.CreateMenu(Locales[Config.lang]["garage_name"], Locales[Config.lang]["garage_desc"], Config.menu_settings.x, Config.menu_settings.y))
 RMenu:Get('garage', 'retrieve_vehicle'):SetRectangleBanner(Config.menu_settings.themeColor.r, Config.menu_settings.themeColor.g, Config.menu_settings.themeColor.b, Config.menu_settings.themeColor.a)
 RMenu.Add('impound', 'retrieve_vehicles', RageUI.CreateMenu(Locales[Config.lang]["impound_name"], Locales[Config.lang]["impound_desc"], Config.menu_settings.x, Config.menu_settings.y))
@@ -90,7 +80,7 @@ Citizen.CreateThread(function()
                     DisplayHelpText(Locales[Config.lang]["input_retrieve"])
                     if IsControlJustReleased(0, Config.keyboard) then
                         isGarageMenuOpen = true
-                        MenuRetrieveVehicle(garage)
+                        GarageMenu(garage)
                     end
                 elseif distance > Config.marker_settings.distance then
                     isGarageMenuOpen = false
@@ -108,7 +98,7 @@ Citizen.CreateThread(function()
                 if distance < Config.marker_settings.distance then
                     DisplayHelpText(Locales[Config.lang]["input_impound"])
                     if IsControlJustReleased(0, Config.keyboard) then
-                        OpenImpoundMenu(impound)
+                        ImpoundMenu(impound)
                     end
                 elseif distance > Config.marker_settings.distance then
                     RageUI.CloseAll()
@@ -118,49 +108,98 @@ Citizen.CreateThread(function()
     end
 end)
 
+RegisterNetEvent('egl_garage:retrieveFromImpoundResponse')
+AddEventHandler('egl_garage:retrieveFromImpoundResponse', function(success, v, impound, deformation)
+    if success then
+        ImpoundSpawnVehicle(v.vehicle, impound)
+        Citizen.Wait(100)
+        local vhl = GetVehiclePedIsIn(PlayerPedId(), false)
+        SetVehicleEngineHealth(vhl, v.ehealth)
+        SetVehicleBodyHealth(vhl, v.bhealth)
+        Entity(vhl).state.fuel = v.fuel
+        exports["VehicleDeformation"]:SetVehicleDeformation(vhl, v.deformation)
+        RageUI.CloseAll()
+    else
+        ESX.ShowNotification(Locales[Config.lang]['not_enough_money'])
+        RageUI.CloseAll()
+    end
+end)
+
+-- Function to display press button text
 function DisplayHelpText(text)
     SetTextComponentFormat("STRING")
-    AddTextComponentString(text)
+    AddTextComponentString(text)    
     DisplayHelpTextFromStringLabel(0, 0, 1, -1)
 end
 
+-- Function to store vehicle in garage
 function StoreVehicle(garage)
-    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    local xPlayer = PlayerPedId()
+    local vehicle = GetVehiclePedIsIn(xPlayer, false)
     local plate = GetVehicleNumberPlateText(vehicle)
-    if vehicle and DoesEntityExist(vehicle) then
-        ESX.Game.DeleteVehicle(vehicle)
-    end
+    local engineHealth = GetVehicleEngineHealth(GetVehiclePedIsIn(xPlayer, false))
+    local bodyHealth = GetVehicleBodyHealth(GetVehiclePedIsIn(xPlayer, false))
     if vehicle and vehicle ~= 0 then
-        TriggerServerEvent('garage:storeVehicle', plate, garage.name)
+        local deformation = exports["VehicleDeformation"]:GetVehicleDeformation(vehicle)
+        local fuelLevel = Entity(vehicle).state.fuel
+                                                         
+        TriggerServerEvent('egl_garage:storeVehicle', plate, garage.name, engineHealth, bodyHealth, deformation, fuelLevel)
+        Citizen.Wait(100)
+
+        ESX.Game.DeleteVehicle(vehicle)
     else
         ESX.ShowNotification(Locales[Config.lang]["error_vehicle"])
-    end
+    end                                                       
 end
 
 function GetVehicleDisplayName(model)
     return GetLabelText(GetDisplayNameFromVehicleModel(model))
 end
 
+-- Function to spawn vehicle from garage
 function GarageSpawnVehicle(vehicle, garage)
     local coords = garage.spawn
-    ESX.Game.SpawnVehicle(vehicle.model, coords, garage.heading, function(spawnedVehicle)
+    local spawnCoords = GetFreeSpawnPoint(coords, garage.heading)
+
+    ESX.Game.SpawnVehicle(vehicle.model, spawnCoords, garage.heading, function(spawnedVehicle)
         ESX.Game.SetVehicleProperties(spawnedVehicle, vehicle)
         TaskWarpPedIntoVehicle(GetPlayerPed(-1), spawnedVehicle, -1)
-        TriggerServerEvent('garage:retrieveVehicle', GetVehicleNumberPlateText(spawnedVehicle))
+        TriggerServerEvent('egl_garage:retrieveVehicle', GetVehicleNumberPlateText(spawnedVehicle))
     end)
 end
 
+-- Function to spawn vehicle from garage
 function ImpoundSpawnVehicle(vehicle, impound)
     local coords = impound.spawn
-    ESX.Game.SpawnVehicle(vehicle.model, coords, impound.heading, function(spawnedVehicle)
+    local spawnCoords = GetFreeSpawnPoint(coords, impound.heading)
+
+    ESX.Game.SpawnVehicle(vehicle.model, spawnCoords, impound.heading, function(spawnedVehicle)
         ESX.Game.SetVehicleProperties(spawnedVehicle, vehicle)
         TaskWarpPedIntoVehicle(GetPlayerPed(-1), spawnedVehicle, -1)
         GetVehicleNumberPlateText(spawnedVehicle)
     end)
 end
 
-function MenuRetrieveVehicle(garage)
-    ESX.TriggerServerCallback('garage:getOwnedVehicles', function(vehicles)
+-- Function to check entity around spawn point to avoid player blocking spawn point
+function GetFreeSpawnPoint(coords, heading)
+    local offsets = {{5,0},{-5,0},{0,5},{0,-5}}
+
+    for _, offset in ipairs(offsets) do
+        local newX = coords.x + offset[1]
+        local newY = coords.y + offset[2]
+        local newZ = coords.z
+
+        if not IsPointObscuredByAMissionEntity(newX, newY, newZ, 2.0, 2.0, 2.0, 0) then
+            return {x = newX, y = newY, z = newZ}
+        end
+    end
+
+    return coords
+end
+
+-- Displaying retrieving menu from garage
+function GarageMenu(garage)
+    ESX.TriggerServerCallback('egl_garage:getOwnedVehicles', function(vehicles)
         RageUI.Visible(RMenu:Get('garage', 'retrieve_vehicle'), not RageUI.Visible(RMenu:Get('garage', 'retrieve_vehicle')))
 
         Citizen.CreateThread(function()
@@ -174,6 +213,15 @@ function MenuRetrieveVehicle(garage)
                             RageUI.ButtonWithStyle(vehicleName .. " [~o~" .. vehicle.plate .. "~s~]", Locales[Config.lang]["retrieve_vehicle"], {RightLabel = "~b~>>>"}, true, function(_, _, Selected)
                                 if Selected then
                                     GarageSpawnVehicle(vehicle.vehicle, garage)
+                                    Citizen.Wait(100)
+                                    local vhl = GetVehiclePedIsIn(PlayerPedId(), false)
+                                    SetVehicleEngineHealth(vhl, vehicle.ehealth)
+                                    SetVehicleBodyHealth(vhl, vehicle.bhealth)
+
+                                    exports["VehicleDeformation"]:SetVehicleDeformation(vhl, vehicle.deformation)
+                                 
+                                    Entity(vhl).state.fuel = vehicle.fuel
+
                                     RageUI.CloseAll()
                                     isMenuOpen = false
                                 end
@@ -189,7 +237,7 @@ function MenuRetrieveVehicle(garage)
     end)
 end
 
-
+-- Function to delete vehicle by plate / used in anti duplication system
 local function DeleteVehicleByPlate(plate)
     local playerCoords = GetEntityCoords(PlayerPedId())
     local vehicles = ESX.Game.GetVehiclesInArea(playerCoords, Config.radius)
@@ -204,8 +252,9 @@ local function DeleteVehicleByPlate(plate)
     end
 end
 
-function OpenImpoundMenu(impound)
-    ESX.TriggerServerCallback('garage:getOwnedVehicles', function(vehicles)
+-- Displaying retrieving menu from impound
+function ImpoundMenu(impound)
+    ESX.TriggerServerCallback('egl_garage:getOwnedVehicles', function(vehicles)
         RageUI.Visible(RMenu:Get('impound', 'retrieve_vehicles'), not RageUI.Visible(RMenu:Get('impound', 'retrieve_vehicles')))
         local shouldBreak = false
         Citizen.CreateThread(function()
@@ -219,7 +268,7 @@ function OpenImpoundMenu(impound)
                             RageUI.ButtonWithStyle(vName .. " [~o~" .. v.plate .. "~s~]", Locales[Config.lang]["select_to_impound"], {RightLabel = Locales[Config.lang]["impound_vehicle"]}, true, function(_, _, selected)
                                 if selected then
                                     DeleteVehicleByPlate(v.plate)
-                                    TriggerServerEvent('garage:impoundVehicle', v.plate)
+                                    TriggerServerEvent('egl_garage:impoundVehicle', v.plate)
                                     RageUI.CloseAll()
                                 end
                             end)
@@ -227,7 +276,7 @@ function OpenImpoundMenu(impound)
                         if v.impound == true then
                             RageUI.ButtonWithStyle(vName .. " [~o~" .. v.plate .. "~s~]", Locales[Config.lang]["pay_impound"].. Config.impound_price .. "~s~ "  .. Config.currency, {RightLabel = "~r~>>>"}, true, function(_, _, selected)
                                 if selected then
-                                    TriggerServerEvent('garage:retrieveFromImpound', v.plate, v, impound)
+                                    TriggerServerEvent('egl_garage:retrieveFromImpound', v.plate, v, impound, v.deformation)
                                 end
                             end)
                         end
