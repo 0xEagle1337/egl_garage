@@ -37,8 +37,8 @@ Config = {
         parking_central = {
             name = 'Parking Central', -- name of the garage place
             input = { x = 216.2807, y = -788.7216, z = 30.92271}, -- zone to put vehicle in the garage if you are in vehicle
-            output = { x = 0, y = 0, z = 0, h = 255}, -- zone to retrieve vehicle in the garage if you are not in vehicle
-            spawn = { x = 0, y = 0, z = 0, h = 255}, -- zone where the vehicle spawn
+            output = { x = 217.2807, y = -788.7216, z = 30.92271, h = 255}, -- zone to retrieve vehicle in the garage if you are not in vehicle
+            spawn = { x = 217.2807, y = -788.7216, z = 30.92271, h = 255}, -- zone where the vehicle spawn
         },
         job_center = {
             name = 'Job-Center Parking', -- name of the garage place
