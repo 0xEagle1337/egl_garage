@@ -3,12 +3,15 @@ games { 'gta5' }
 
 author 'Eagle'
 description 'FiveM garage / impound script using RageUI for ESX Legacy 1.8.5'
-version '1.0.1'
+version '1.1.0'
 
 
 dependency({
 	"es_extended",
 	"esx_vehicleshop",
+	"VehicleDeformation",
+	"ox_inventory",
+	"ox_fuel",
 })
 
 locales({
@@ -37,7 +40,6 @@ client_scripts({
 })
 
 server_scripts({
-	"@oxmysql/lib/MySQL.lua",
 
 	"locales/fr.lua",
 	"locales/en.lua",
@@ -47,5 +49,7 @@ server_scripts({
 	"server/main.lua",
 })
 
--- Created by Eagle#7366
+-- Created by Eagle,
+-- Discord: 0xeagle1337
+
 -- Feel free to modify the code.
