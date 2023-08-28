@@ -40,7 +40,7 @@ client_scripts({
 })
 
 server_scripts({
-
+	"@oxmysql/lib/MySQL.lua",
 	"locales/fr.lua",
 	"locales/en.lua",
 

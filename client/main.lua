@@ -117,7 +117,7 @@ AddEventHandler('egl_garage:retrieveFromImpoundResponse', function(success, v, i
         SetVehicleEngineHealth(vhl, v.ehealth)
         SetVehicleBodyHealth(vhl, v.bhealth)
         Entity(vhl).state.fuel = v.fuel
-        exports["VehicleDeformation"]:SetVehicleDeformation(vhl, v.deformation)
+        exports["VehicleDeformation"]:SetVehicleDeformation(GetVehiclePedIsIn(PlayerPedId(), false), v.deformation)
         RageUI.CloseAll()
     else
         ESX.ShowNotification(Locales[Config.lang]['not_enough_money'])
@@ -134,13 +134,12 @@ end
 
 -- Function to store vehicle in garage
 function StoreVehicle(garage)
-    local xPlayer = PlayerPedId()
-    local vehicle = GetVehiclePedIsIn(xPlayer, false)
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
     local plate = GetVehicleNumberPlateText(vehicle)
-    local engineHealth = GetVehicleEngineHealth(GetVehiclePedIsIn(xPlayer, false))
-    local bodyHealth = GetVehicleBodyHealth(GetVehiclePedIsIn(xPlayer, false))
+    local engineHealth = GetVehicleEngineHealth(GetVehiclePedIsIn(PlayerPedId(), false))
+    local bodyHealth = GetVehicleBodyHealth(GetVehiclePedIsIn(PlayerPedId(), false))
     if vehicle and vehicle ~= 0 then
-        local deformation = exports["VehicleDeformation"]:GetVehicleDeformation(vehicle)
+        local deformation = exports["VehicleDeformation"]:GetVehicleDeformation(GetVehiclePedIsIn(PlayerPedId(), false))
         local fuelLevel = Entity(vehicle).state.fuel
                                                          
         TriggerServerEvent('egl_garage:storeVehicle', plate, garage.name, engineHealth, bodyHealth, deformation, fuelLevel)
@@ -218,7 +217,7 @@ function GarageMenu(garage)
                                     SetVehicleEngineHealth(vhl, vehicle.ehealth)
                                     SetVehicleBodyHealth(vhl, vehicle.bhealth)
 
-                                    exports["VehicleDeformation"]:SetVehicleDeformation(vhl, vehicle.deformation)
+                                    exports["VehicleDeformation"]:SetVehicleDeformation(GetVehiclePedIsIn(PlayerPedId(), false), vehicle.deformation)
                                  
                                     Entity(vhl).state.fuel = vehicle.fuel
 
