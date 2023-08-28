@@ -22,7 +22,7 @@ This script provides a robust garage system for FiveM servers running on ESX Leg
 Ensure you have the following dependencies installed and set up on your server:
 
     es_extended: This is the ESX (EssentialMode Extended) framework for FiveM.
-    VehicleDeformation: A resource that handles vehicle deformations. Link here
+    VehicleDeformation: A resource that handles vehicle deformations. Link: https://github.com/Kiminaze/VehicleDeformation
     ox_inventory: An inventory system for FiveM, often used as an alternative or replacement for esx_inventoryhud.
     ox_fuel: A script for managing vehicle fuel.
 
